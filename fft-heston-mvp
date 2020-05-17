@@ -1,0 +1,134 @@
+function dft(S)
+N:=#S;
+Y:=[C|0*i:i in [1..N]];
+for k :=1 to N by 1 do
+for i :=1 to N by 1 do
+Y[k]+:=(S[i]*eˆ(-ii*2*pi*k*i/N));
+end for;
+end for;
+return Y;
+end function;
+
+
+function bitrev(a)
+p:=#(IntegerToSequence((#a)-1,2));
+alt: ceiling 2log n
+b:=[];
+for i :=1 to #a do
+d:=IntegerToSequence(i-1,2,p); 
+b[i]:=a[SequenceToInteger(Reverse(d),2)+1];
+end for;
+return b;
+end function;
+
+C<ii>:=ComplexField();
+pi := Pi(RealField());
+e := Exp(1);
+function fft(B) 
+a:=[ComplexField()|B[i]:i in [1..#B]];
+n:=#a;
+tellern:=Ilog2(n);
+a:=bitrev(a);
+for tellerm:=1 to tellern do 
+m := 2ˆtellerm;
+mh := m div 2;
+for j:=1 to mh do // m/2 iteraties
+f := eˆ(-1*ii*2*pi*(j-1)/m);
+for r:=0 to n-m by m do
+u := a[r+j];
+v := a[r+j+mh] * f;
+a[r+j] := u + v;
+a[r+j+mh] := u - v;
+end for;
+end for;
+end for;
+B:=[a[i]:i in [1..n]];
+return B;
+end function;
+
+
+//Convulution. Not needed but can be used as extra test of the FFT
+
+function conv(f,g)
+n:=#f;
+p:=[ComplexField()|];
+w:=[ComplexField()];
+for i:=#f+1 to (#f+#g) do
+f[i]:=0;
+g[i]:=0;
+end for;
+z:=ifft(f);
+y:=ifft(g);
+for i:=1 to #f do
+p[i]:=z[i]*y[i];
+end for;
+w:=[fft(p)[i]/(2*n):i in [1..#p]];
+return w;
+end function;
+function slowconv2(f,g)
+n:=#f;
+h:=[ComplexField()!0*i:i in [1..2*n]];
+for u:=n+1 to 2*n do
+f[u]:=0;
+g[u]:=0;
+end for;
+for k:=1 to 2*n do
+for j:=Max(1,k+1-2*n) to Min(k,2*n) do
+h[k]+:=f[j]*g[k-j+1];
+end for;
+end for;
+return h;
+end function;
+
+//-------
+
+
+
+eta:=0.25;
+function Heston(phi,S,K,T,r,rf,kappa,theta,sigma,rho,v0)
+N:=2ˆ10;
+k:=Log(K);
+s0:= Log(S);
+alpha:=0.75 + (1-phi)*0.5;
+lambda := 2*pi/(N*eta);
+b := N*lambda/2;
+//u:= v - (phi*alpha+1)*ii;
+u:= [(j-1)*eta - (phi*alpha+1)*ii:j in [1..N]];
+ku:=[-b+lambda*(i-1):i in[1..N]]; //strike van k’s
+d := [Sqrt((rho*sigma*u[j]*1*ii-kappa)ˆ2+
+sigmaˆ2*(1*ii*u[j]+u[j]ˆ2)):j in [1..N]];
+g := [(kappa-(rho*sigma*ii*u[j])-d[j])/
+(kappa-rho*sigma*ii*u[j]+d[j]):j in[1..N]];
+A := [ii*u[j]*(s0 + (r-rf)*T):j in [1..N]];
+B :=
+[theta*kappa*sigmaˆ(-2)*((kappa-rho*sigma*1*ii*u[j]-d[j])*
+T-2*Log((1-g[j]*Exp(-d[j]*T))/(1-g[j]))):j
+in [1..N]];
+C := [v0*sigmaˆ(-2)*(kappa-rho*sigma*1*ii*u[j]-d[j])*
+(1-Exp(-d[j]*T))/(1-g[j]*Exp(-d[j]*T)):j in
+[1..N]];
+charFunc:=[Exp(A[j]+B[j]+C[j]):j in [1..N]];
+F := [charFunc[j]*Exp(-r*T)/(alphaˆ2 + phi*alpha -
+((j-1)*eta)ˆ2 + 1*ii*(phi*2*alpha
++1)*((j-1)*eta)):j in [1..N]];
+Kroneckerrij:=[1] cat [0 : i in [2..N]];
+Simpsonw:= [1/3*(3+(-1)ˆi-Kroneckerrij[i]): i in [1..N]];
+FFTFunc:=[F[j]*Exp(ii*b*(j*eta))
+eta*Simpsonw[j]:j in [1..N]];
+z:=(fft(FFTFunc));
+optiewaarde:=[Exp(-phi*alpha*ku[i])
+Real(-z[i])/pi:i in [1..#z]];
+prijs:=optiewaarde[Floor((k+(pi/eta))/lambda)+1]+
+((k-ku[Floor((k+(pi/eta))/lambda)+1])*
+optiewaarde[Floor((k+(pi/eta))/lambda)+2]-
+(k-ku[Floor((k+(pi/eta))/lambda+1)])*
+optiewaarde[Floor((k+(pi/eta))/lambda+1)])/lambda;
+return prijs;
+end function;
+
+
+
+//sources
+//Carr & Madan 
+//Albrecher et. al -The Little Heston Trap
+//MAGMA: http://magma.maths.usyd.edu.au/magma/
